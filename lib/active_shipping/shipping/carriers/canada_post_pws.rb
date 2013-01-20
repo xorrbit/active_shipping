@@ -4,6 +4,7 @@ module ActiveMerchant
   module Shipping
           
     class CanadaPostPWS < Carrier
+      cattr_reader :name
       @@name = "Canada Post PWS"
 
       SHIPPING_SERVICES = {
@@ -270,6 +271,8 @@ module ActiveMerchant
       # rating
 
       def build_rates_request(origin, destination, line_items = [], options = {}, package = nil, services = [])
+        origin = origin.is_a?(Location) ? origin : Location.new(origin)
+        destination = destination.is_a?(Location) ? destination : Location.new(destination)
         xml =  XmlNode.new('mailing-scenario', :xmlns => "http://www.canadapost.ca/ws/ship/rate") do |node|
           node << customer_number_node(options)
           node << contract_id_node(options)
@@ -277,8 +280,8 @@ module ActiveMerchant
           options_node = shipping_options_node(RATES_OPTIONS, options)
           node << options_node if options_node && !options_node.children.count.zero?
           node << parcel_node(line_items, package)
-          node << origin_node(origin)
-          node << destination_node(destination)
+          node << origin_node(origin.to_hash)
+          node << destination_node(destination.to_hash)
           node << services_node(services) unless services.blank?
         end
         xml.to_s
@@ -361,9 +364,12 @@ module ActiveMerchant
       # :show_postage_rate
       # :cod, :cod_amount, :insurance, :insurance_amount, :signature_required, :pa18, :pa19, :hfp, :dns, :lad
       # 
-      def build_shipment_request(origin_hash, destination_hash, package, line_items = [], options = {})
-        origin = Location.new(sanitize_zip(origin_hash))
-        destination = Location.new(sanitize_zip(destination_hash))
+      def build_shipment_request(origin, destination, package, line_items = [], options = {})
+        origin = origin.is_a?(Location) ? origin : Location.new(origin)
+        destination = destination.is_a?(Location) ? destination : Location.new(destination)
+
+        origin = Location.new(sanitize_zip(origin.to_hash))
+        destination = Location.new(sanitize_zip(destination.to_hash))
 
         xml = XmlNode.new('non-contract-shipment', :xmlns => "http://www.canadapost.ca/ws/ncshipment") do |root_node|
           root_node << XmlNode.new('delivery-spec') do |node|
